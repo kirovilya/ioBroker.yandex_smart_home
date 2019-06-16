@@ -1,5 +1,5 @@
 ![Logo](admin/yandex_smart_home.png)
-# ioBroker.yandex_smart_home
+# ioBroker.yandex_smart_home - PRE ALPHA VERSION - nothing work yet!
 
 [![NPM version](http://img.shields.io/npm/v/iobroker.yandex_smart_home.svg)](https://www.npmjs.com/package/iobroker.yandex_smart_home)
 [![Downloads](https://img.shields.io/npm/dm/iobroker.yandex_smart_home.svg)](https://www.npmjs.com/package/iobroker.yandex_smart_home)
@@ -10,9 +10,8 @@
 
 **Tests:**: [![Travis-CI](http://img.shields.io/travis/kirovilya/ioBroker.yandex_smart_home/master.svg)](https://travis-ci.org/kirovilya/ioBroker.yandex_smart_home)
 
-## yandex_smart_home adapter for ioBroker
+## Yandex smart home adapter for ioBroker
 
-Describe your project here
 
 ## Developer manual
 This section is intended for the developer. It can be deleted later
