@@ -19,10 +19,9 @@ class YandexSmartHome extends utils.Adapter {
      * @param {Partial<ioBroker.AdapterOptions>} [options={}]
      */
     constructor(options) {
-        super({
-            ...options,
+        super(Object.assign({}, options, {
             name: "yandex_smart_home",
-        });
+        }));
         this.on("ready", this.onReady.bind(this));
         this.on("objectChange", this.onObjectChange.bind(this));
         this.on("stateChange", this.onStateChange.bind(this));
@@ -34,7 +33,7 @@ class YandexSmartHome extends utils.Adapter {
     /**
      * Is called when databases are connected and adapter received configuration.
      */
-    async onReady() {
+    onReady() {
         // Initialize your adapter here
 
         // The adapters config (in the instance object everything under the attribute "native") is accessible via
@@ -85,8 +84,7 @@ class YandexSmartHome extends utils.Adapter {
 
         //this.webServer = this.initWebServer(this.config);
         this.webServer = this.initWebServer({
-            port: 8888,
-
+            port: 8088,
         });
     }
 
