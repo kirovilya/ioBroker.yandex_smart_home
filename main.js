@@ -1,7 +1,7 @@
 "use strict";
 
 /*
- * Created with @iobroker/create-adapter v1.15.1
+ * Created with @iobroker/create-adapter v1.15.1 
  */
 
 // The adapter-core module gives you access to the core ioBroker functions
@@ -12,6 +12,7 @@ const utils = require("@iobroker/adapter-core");
 const fs = require("fs");
 const LE = require(utils.controllerDir + '/lib/letsencrypt.js');
 const SimpleAPI = require('./lib/simpleapi.js');
+const safeJsonStringify = require('./lib/json');
 
 class YandexSmartHome extends utils.Adapter {
 
@@ -109,7 +110,7 @@ class YandexSmartHome extends utils.Adapter {
     onObjectChange(id, obj) {
         if (obj) {
             // The object was changed
-            this.log.info(`object ${id} changed: ${JSON.stringify(obj)}`);
+            this.log.info(`object ${id} changed: ${safeJsonStringify(obj)}`);
         } else {
             // The object was deleted
             this.log.info(`object ${id} deleted`);
@@ -137,15 +138,15 @@ class YandexSmartHome extends utils.Adapter {
     //  * @param {ioBroker.Message} obj
     //  */
     // onMessage(obj) {
-    // 	if (typeof obj === "object" && obj.message) {
-    // 		if (obj.command === "send") {
-    // 			// e.g. send email or pushover or whatever
-    // 			this.log.info("send command");
+    //  if (typeof obj === "object" && obj.message) {
+    //      if (obj.command === "send") {
+    //          // e.g. send email or pushover or whatever
+    //          this.log.info("send command");
 
-    // 			// Send response in callback if required
-    // 			if (obj.callback) this.sendTo(obj.from, obj.command, "Message received", obj.callback);
-    // 		}
-    // 	}
+    //          // Send response in callback if required
+    //          if (obj.callback) this.sendTo(obj.from, obj.command, "Message received", obj.callback);
+    //      }
+    //  }
     // }
 
     requestProcessor(req, res) {
