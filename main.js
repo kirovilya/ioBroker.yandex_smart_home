@@ -1,3 +1,7 @@
+/* jshint -W097 */
+/* jshint strict:false */
+/*jslint node: true */
+/*jshint -W061 */
 "use strict";
 
 /*
@@ -11,7 +15,9 @@ const utils = require("@iobroker/adapter-core");
 // Load your modules here, e.g.:
 const fs = require("fs");
 const LE = require(utils.controllerDir + '/lib/letsencrypt.js');
-const SimpleAPI = require('./lib/simpleapi.js');
+
+const YandexSmartHomeProvider = require('./lib/provider');
+const DeviceManager = require('./lib/devmanager');
 const safeJsonStringify = require('./lib/json');
 
 class YandexSmartHome extends utils.Adapter {
@@ -84,8 +90,13 @@ class YandexSmartHome extends utils.Adapter {
         //this.log.info("check group user admin group admin: " + result);
 
         //this.webServer = this.initWebServer(this.config);
+        this.devmanager = new DeviceManager(this);
+        this.devmanager.getAll();
+        
         this.webServer = this.initWebServer({
             port: 8088,
+            prefix: "/dacha",
+            devmanager: this.devmanager,
         });
     }
 
@@ -132,22 +143,22 @@ class YandexSmartHome extends utils.Adapter {
         }
     }
 
-    // /**
-    //  * Some message was sent to this instance over message box. Used by email, pushover, text2speech, ...
-    //  * Using this method requires "common.message" property to be set to true in io-package.json
-    //  * @param {ioBroker.Message} obj
-    //  */
-    // onMessage(obj) {
-    //  if (typeof obj === "object" && obj.message) {
-    //      if (obj.command === "send") {
-    //          // e.g. send email or pushover or whatever
-    //          this.log.info("send command");
+    /**
+     * Some message was sent to this instance over message box. Used by email, pushover, text2speech, ...
+     * Using this method requires "common.message" property to be set to true in io-package.json
+     * @param {ioBroker.Message} obj
+     */
+    onMessage(obj) {
+     if (typeof obj === "object" && obj.message) {
+         if (obj.command === "send") {
+             // e.g. send email or pushover or whatever
+             this.log.info("send command");
 
-    //          // Send response in callback if required
-    //          if (obj.callback) this.sendTo(obj.from, obj.command, "Message received", obj.callback);
-    //      }
-    //  }
-    // }
+             // Send response in callback if required
+             if (obj.callback) this.sendTo(obj.from, obj.command, "Message received", obj.callback);
+         }
+     }
+    }
 
     requestProcessor(req, res) {
         if (req.url.indexOf('favicon.ico') !== -1) {
@@ -162,7 +173,7 @@ class YandexSmartHome extends utils.Adapter {
             // We replaced all the event handlers with a simple call to readStream.pipe()
             readStream.pipe(res);
         } else {
-            this.webServer.api.restApi(req, res);
+            this.webServer.api.request(req, res);
         }
     }
     
@@ -208,7 +219,7 @@ class YandexSmartHome extends utils.Adapter {
             });
         }
     
-        server.api = new SimpleAPI(server.server, settings, this);
+        server.api = new YandexSmartHomeProvider(this, settings);
     
         if (server.server) {
             return server;
