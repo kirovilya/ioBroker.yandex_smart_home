@@ -16,8 +16,6 @@ const utils = require("@iobroker/adapter-core");
 const fs = require("fs");
 const LE = require(utils.controllerDir + '/lib/letsencrypt.js');
 
-const YandexSmartHomeProvider = require('./lib/provider');
-const DeviceManager = require('./lib/devmanager');
 const safeJsonStringify = require('./lib/json');
 
 class YandexSmartHome extends utils.Adapter {
@@ -42,61 +40,9 @@ class YandexSmartHome extends utils.Adapter {
      */
     onReady() {
         // Initialize your adapter here
-
-        // The adapters config (in the instance object everything under the attribute "native") is accessible via
-        // this.config:
-        //this.log.info("config option1: " + this.config.option1);
-        //this.log.info("config option2: " + this.config.option2);
-
-        /*
-        For every state in the system there has to be also an object of type state
-        Here a simple template for a boolean variable named "testVariable"
-        Because every adapter instance uses its own unique namespace variable names can't collide with other adapters variables
-        */
-        // await this.setObjectAsync("testVariable", {
-        //     type: "state",
-        //     common: {
-        //         name: "testVariable",
-        //         type: "boolean",
-        //         role: "indicator",
-        //         read: true,
-        //         write: true,
-        //     },
-        //     native: {},
-        // });
-
-        // in this template all states changes inside the adapters namespace are subscribed
-        this.subscribeStates("*");
-
-        /*
-        setState examples
-        you will notice that each setState will cause the stateChange event to fire (because of above subscribeStates cmd)
-        */
-        // the variable testVariable is set to true as command (ack=false)
-        //await this.setStateAsync("testVariable", true);
-
-        // same thing, but the value is flagged "ack"
-        // ack should be always set to true if the value is received from or acknowledged from the target system
-        //await this.setStateAsync("testVariable", { val: true, ack: true });
-
-        // same thing, but the state is deleted after 30s (getState will return null afterwards)
-        //await this.setStateAsync("testVariable", { val: true, ack: true, expire: 30 });
-
-        // examples for the checkPassword/checkGroup functions
-        //let result = await this.checkPasswordAsync("admin", "iobroker");
-        //this.log.info("check user admin pw ioboker: " + result);
-
-        //result = await this.checkGroupAsync("admin", "admin");
-        //this.log.info("check group user admin group admin: " + result);
-
-        //this.webServer = this.initWebServer(this.config);
-        this.devmanager = new DeviceManager(this);
-        this.devmanager.getAll();
-        
         this.webServer = this.initWebServer({
             port: 8088,
-            prefix: "/dacha",
-            devmanager: this.devmanager,
+            prefix: "/dacha"
         });
     }
 
@@ -149,15 +95,54 @@ class YandexSmartHome extends utils.Adapter {
      * @param {ioBroker.Message} obj
      */
     onMessage(obj) {
-     if (typeof obj === "object" && obj.message) {
-         if (obj.command === "send") {
-             // e.g. send email or pushover or whatever
-             this.log.info("send command");
+        if (typeof obj === "object" && obj.message) {
+            if (obj.command === "send") {
+                // e.g. send email or pushover or whatever
+                this.log.info("send command");
 
-             // Send response in callback if required
-             if (obj.callback) this.sendTo(obj.from, obj.command, "Message received", obj.callback);
-         }
-     }
+                // Send response in callback if required
+                if (obj.callback) this.sendTo(obj.from, obj.command, "Message received", obj.callback);
+            }
+        }
+    }
+
+    doResponse(res, type, status, _headers, content, pretty) {
+        status = parseInt(status, 10) || 200;
+
+        if (pretty && typeof content === 'object') {
+            type = 'plain';
+            content = JSON.stringify(content, null, 2);
+        }
+
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+
+        switch (type) {
+            case 'json':
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                res.statusCode = status;
+                res.end(JSON.stringify(content), 'utf8');
+                break;
+
+            case 'plain':
+                res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+                res.statusCode = status;
+                if (typeof content === 'object') {
+                    content = JSON.stringify(content);
+                }
+
+                res.end(content, 'utf8');
+                break;
+            case 'html':
+                res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                res.statusCode = status;
+                if (typeof content === 'object') {
+                    content = JSON.stringify(content);
+                }
+
+                res.end(content, 'utf8');
+                break;
+        }
     }
 
     requestProcessor(req, res) {
@@ -172,8 +157,85 @@ class YandexSmartHome extends utils.Adapter {
             const readStream = fs.createReadStream(__dirname + '/admin/favicon.ico');
             // We replaced all the event handlers with a simple call to readStream.pipe()
             readStream.pipe(res);
-        } else {
-            this.webServer.api.request(req, res);
+        } else {            
+            let values = {};
+            let url;
+            try {
+                url = decodeURI(req.url);
+            }
+            catch (e) {
+                url = req.url;
+            }
+            const pos = url.indexOf('?');
+            if (pos !== -1) {
+                const arr = url.substring(pos + 1).split('&');
+                url = url.substring(0, pos);
+
+                for (let i = 0; i < arr.length; i++) {
+                    const _parts = arr[i].split('=');
+                    try {
+                        _parts[0] = decodeURIComponent(_parts[0]).trim().replace(/%23/g, '#');
+                        _parts[1] = _parts[1] === undefined ? null : decodeURIComponent((_parts[1] + '').replace(/\+/g, '%20'));
+                        values[_parts[0]] = _parts[1];
+                    } catch (e) {
+                        values[_parts[0]] = _parts[1];
+                    }
+                }
+            }
+
+            const command = url.replace(this.prefix, '');
+            console.log(command);
+
+            if (req.method === 'POST') {
+                let body = '';
+                req.on('data', data => body += data);
+                req.on('end', () => {
+                    values = JSON.parse(body);
+                    this.processCommand(req, res, command, values);
+                });
+            } else {
+                this.processCommand(req, res, command, values);
+            }
+        }
+    }
+
+    processCommand(req, res, command, values) {
+        switch (command) {
+            // GET
+            // https://yandex.ru/dev/dialogs/alice/doc/auth/account-linking-docpage/
+            case '/auth':
+                const authResult = '<!DOCTYPE html><html class="i-ua_js_no i-ua_css_standard" lang="ru"><head><meta name="viewport" content="width=device-width, height=device-height initial-scale=1 user-scalable=no">' +
+                '<body style="background:#310d80;">' +
+                '<footer style="position:fixed; bottom:0; left:0; right:0; padding:24px 16px;">' +
+                '<a style="display:block; text-align:center; background:#7b3dcc; color:#fff; cursor:pointer; font-family:Arial,sans-serif; font-size:20px; padding:13px 16px; border-radius:6px; text-decoration:none;" href="' + values.redirect_uri + '?code=test123&state=' + values.state + '">Подключить умный дом</a></footer></body></html>';
+                this.doResponse(res, 'html', 200, {'Access-Control-Allow-Origin': '*'}, authResult, false);
+                break;
+
+            // https://yandex.ru/dev/dialogs/alice/doc/smart-home/reference/check-docpage/
+            case '/v1.0':
+                this.doResponse(res, 'json', 200, {'Access-Control-Allow-Origin': '*'});
+                break;
+
+            // POST
+            case '/token':
+                let tokenResult = {"access_token": "acceess123456789", "token_type": "bearer", "expires_in": 2592000, "refresh_token": "refresh123456789"};
+                this.doResponse(res, 'json', 200, {'Access-Control-Allow-Origin': '*'}, tokenResult, true);
+                break;
+                
+            // https://yandex.ru/dev/dialogs/alice/doc/smart-home/reference/unlink-docpage/
+            case '/v1.0/user/unlink':
+                this.doResponse(res, 'json', 200, {'Access-Control-Allow-Origin': '*'});
+                break;
+            
+            default:
+                const OBJECT_FROM_ALISA_SERVICE = values || {}; // object from alisa service or empty object
+                OBJECT_FROM_ALISA_SERVICE.alisa = command;
+                this.sendTo('iot.0', 'private', {type: 'alisa', request: OBJECT_FROM_ALISA_SERVICE}, response => {
+                    // Send this response back to alisa service
+                    this.log.debug(JSON.stringify(response));
+                    this.doResponse(res, 'json', 200, {'Access-Control-Allow-Origin': '*'}, response); 
+                });
+                break;
         }
     }
     
@@ -188,6 +250,7 @@ class YandexSmartHome extends utils.Adapter {
         //this.log.debug(`${JSON.stringify(settings)}`);
     
         settings.port = parseInt(settings.port, 10);
+        this.prefix = settings.prefix;
     
         if (settings.port) {
             if (settings.secure && !this.config.certificates) return null;
@@ -218,8 +281,6 @@ class YandexSmartHome extends utils.Adapter {
                 this.log.info('http' + (settings.secure ? 's' : '') + ' server listening on port ' + port);
             });
         }
-    
-        server.api = new YandexSmartHomeProvider(this, settings);
     
         if (server.server) {
             return server;
