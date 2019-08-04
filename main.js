@@ -184,13 +184,18 @@ class YandexSmartHome extends utils.Adapter {
             }
 
             const command = url.replace(this.prefix, '');
-            console.log(command);
+            this.log.debug(command);
 
             if (req.method === 'POST') {
                 let body = '';
                 req.on('data', data => body += data);
                 req.on('end', () => {
-                    values = JSON.parse(body);
+                    this.log.debug(body);
+                    try {
+                        values = JSON.parse(body);
+                    } catch (e) {
+                        this.log.debug(`Error json parsing ${body}`);
+                    }
                     this.processCommand(req, res, command, values);
                 });
             } else {
