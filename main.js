@@ -41,8 +41,9 @@ class YandexSmartHome extends utils.Adapter {
     onReady() {
         // Initialize your adapter here
         this.webServer = this.initWebServer({
-            port: 8088,
-            prefix: "/dacha"
+            port: this.config.port,
+            prefix: this.config.prefix,
+            iotInstance: this.config.iotInstance
         });
     }
 
@@ -235,7 +236,7 @@ class YandexSmartHome extends utils.Adapter {
             default:
                 const OBJECT_FROM_ALISA_SERVICE = values || {}; // object from alisa service or empty object
                 OBJECT_FROM_ALISA_SERVICE.alisa = command;
-                this.sendTo('iot.0', 'private', {type: 'alisa', request: OBJECT_FROM_ALISA_SERVICE}, response => {
+                this.sendTo(this.iotInstance, 'private', {type: 'alisa', request: OBJECT_FROM_ALISA_SERVICE}, response => {
                     // Send this response back to alisa service
                     this.log.debug(JSON.stringify(response));
                     this.doResponse(res, 'json', 200, {'Access-Control-Allow-Origin': '*'}, response); 
@@ -245,24 +246,18 @@ class YandexSmartHome extends utils.Adapter {
     }
     
     initWebServer(settings) {
-        const server = {
-            app:       null,
-            server:    null,
-            api:       null,
-            io:        null,
-            settings:  settings
-        };
         //this.log.debug(`${JSON.stringify(settings)}`);
-    
+        let server;
         settings.port = parseInt(settings.port, 10);
         this.prefix = settings.prefix;
+        this.iotInstance = settings.iotInstance;
+
     
         if (settings.port) {
             if (settings.secure && !this.config.certificates) return null;
     
-            server.server = LE.createServer(this.requestProcessor.bind(this), settings, this.config.certificates, 
+            server = LE.createServer(this.requestProcessor.bind(this), settings, this.config.certificates, 
                 this.config.leConfig, this.log);
-            server.server.__server = server;
         } else {
             this.log.error('port missing');
             //if (this.terminate) {
@@ -272,7 +267,7 @@ class YandexSmartHome extends utils.Adapter {
             //}
         }
     
-        if (server.server) {
+        if (server) {
             this.getPort(settings.port, port => {
                 if (port !== settings.port && !this.config.findNextPort) {
                     this.log.error('port ' + settings.port + ' already in use');
@@ -282,12 +277,14 @@ class YandexSmartHome extends utils.Adapter {
                         process.exit(1);
                     }
                 }
-                server.server.listen(port);
+                server.listen(port);
                 this.log.info('http' + (settings.secure ? 's' : '') + ' server listening on port ' + port);
+                this.log.info(`with prefix "${this.prefix}"`);
+                this.log.info(`send to "${this.iotInstance}"`);
             });
         }
     
-        if (server.server) {
+        if (server) {
             return server;
         } else {
             return null;

@@ -22,6 +22,7 @@
         function load(settings, onChange) {
             // example: select elements with id=key and class=value and insert value
             if (!settings) return;
+            if (!settings.port) settings.port = 8088;
             $('.value').each(function () {
                 var $key = $(this);
                 var id = $key.attr('id');
@@ -36,6 +37,16 @@
                         .on('change', () => onChange())
                         .on('keyup', () => onChange())
                         ;
+                }
+            });
+            getAdapterInstances('iot', function (result) {
+                if (result) {
+                    var text = '';
+                    for (var r = 0; r < result.length; r++) {
+                        var name = result[r]._id.substring('system.adapter.'.length);
+                        text += '<option value="' + name + '" ' + (settings.iotInstance === name ? 'selected' : '') + '>' + name + '</option>';
+                    }
+                    $('#iotInstance').append(text).select();
                 }
             });
             onChange(false);
@@ -70,22 +81,27 @@
                 <img src="yandex_smart_home.png" class="logo">
             </div>
         </div>
-
-        <!-- Put your content here -->
-
-        <!-- For example columns with settings: -->
-        <!-- <div class="row">
-            <div class="col s6 input-field">
-                <input type="checkbox" class="value" id="option1" />
-                <label for="option1" class="translate">option1</label>
+        
+        <div class="row">
+            <div class="col s12 m4">
+                <select class="value" id="iotInstance">
+                    
+                </select>
+                <label for="iotInstance" class="translate">Send to IOT adapter:</label>
             </div>
-
-            <div class="col s6 input-field">
-                <input type="text" class="value" id="option2" />
-                <label for="option2" class="translate">option2</label>
+        </div>
+        <div class="row">
+            <div class="col s12 m4">
+                <input class="value" id="prefix"/>
+                <label for="prefix" class="translate">Prefix path:</label>
             </div>
-        </div> -->
-
+        </div>
+        <div class="row">
+            <div class="col s12 m4">
+                <input class="value" id="port" type="number" min="0"/>
+                <label for="port" class="translate">Port number:</label>
+            </div>
+        </div>
     </div>
 
 </body>
