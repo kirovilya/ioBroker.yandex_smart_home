@@ -17,6 +17,7 @@ const fs = require("fs");
 const LE = require(utils.controllerDir + '/lib/letsencrypt.js');
 
 const safeJsonStringify = require('./lib/json');
+var https  = require('https');
 
 class YandexSmartHome extends utils.Adapter {
 
@@ -30,7 +31,7 @@ class YandexSmartHome extends utils.Adapter {
         this.on("ready", this.onReady.bind(this));
         this.on("objectChange", this.onObjectChange.bind(this));
         this.on("stateChange", this.onStateChange.bind(this));
-        // this.on("message", this.onMessage.bind(this));
+        this.on("message", this.onMessage.bind(this));
         this.on("unload", this.onUnload.bind(this));
         this.webServer = null;
     }
@@ -99,7 +100,15 @@ class YandexSmartHome extends utils.Adapter {
         if (typeof obj === "object" && obj.message) {
             if (obj.command === "send") {
                 // e.g. send email or pushover or whatever
-                this.log.info("send command");
+                this.log.info(`send command: ${JSON.stringify(obj.message)}`);
+                if (obj.message.command === "sendNotify") {
+                    this.log.info("send notify");
+
+                    this.sendBackNotify(obj.message.deviceId);
+
+                    // Send response in callback if required
+                    if (obj.callback) this.sendTo(obj.from, obj.command, "Message received", obj.callback);
+                }
 
                 // Send response in callback if required
                 if (obj.callback) this.sendTo(obj.from, obj.command, "Message received", obj.callback);
@@ -219,6 +228,7 @@ class YandexSmartHome extends utils.Adapter {
 
             // https://yandex.ru/dev/dialogs/alice/doc/smart-home/reference/check-docpage/
             case '/v1.0':
+            case '/v1.0/':
                 this.doResponse(res, 'json', 200, {'Access-Control-Allow-Origin': '*'});
                 break;
 
@@ -289,6 +299,66 @@ class YandexSmartHome extends utils.Adapter {
         } else {
             return null;
         }
+    }
+
+    sendBackNotify(deviceId) {
+        const OBJECT_FROM_ALISA_SERVICE = {
+            "devices": [
+                {
+                  "id": deviceId,
+                },
+            ]
+        };
+        OBJECT_FROM_ALISA_SERVICE.alisa = '/v1.0/user/devices/query';
+        this.sendTo(this.iotInstance, 'private', {type: 'alisa', request: OBJECT_FROM_ALISA_SERVICE}, response => {
+            if (response) {
+                this.log.debug(JSON.stringify(response));
+                delete response.request_id;
+                response.ts = Date.now();
+                this.sendToYandex(response);
+            }
+        });
+    }
+
+    sendToYandex(data) {
+        const adapter = this;
+        const postData = JSON.stringify(data);
+        const options = {
+            host: 'dialogs.yandex.net',
+            path: `/api/v1/skills/${this.config.skill_id}/callback/state`,
+            method: 'POST',
+            headers: {
+                'Authorization': this.config.token,
+                'Content-Type': 'application/json'
+            }
+        };
+        const r = https.request(options, function (res) {
+            let message = '', data = '';
+            res.on('data', (chunk) => {
+                message += chunk;
+            });
+            res.on('end', function() {
+                try {
+                    data = JSON.parse(message);
+                } catch (err) {
+                    adapter.log.error('Cannot parse: ' + message);
+                    return;
+                }
+                if (res.statusCode == 200) {
+                    
+                } else {
+                    adapter.log.error(res.statusMessage);
+                }
+            });
+        });
+        r.on('error', function (res) {
+            adapter.log.error('request failure: '+res.message);
+        });
+        if (data) {
+            r.write(postData);
+            adapter.log.debug(postData);
+        }
+        r.end();
     }
 }
 

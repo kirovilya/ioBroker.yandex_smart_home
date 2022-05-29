@@ -1,77 +1,79 @@
 {
-    "common": {
-        "name": "yandex_smart_home",
-        "version": "0.0.1",
-        "news": {
-            "0.0.1": {
-                "en": "initial release",
-                "de": "Erstveröffentlichung",
-                "ru": "Начальная версия",
-                "pt": "lançamento inicial",
-                "nl": "Eerste uitgave",
-                "fr": "Première version",
-                "it": "Versione iniziale",
-                "es": "Versión inicial",
-                "pl": "Pierwsze wydanie",
-                "zh-cn": "首次出版"
-            }
-        },
-        "title": "Yandex smart home",
-        "titleLang": {
-            "en": "Yandex smart home",
-            "de": "Yandex Smart Home",
-            "ru": "Яндекс умный дом",
-            "pt": "Yandex casa inteligente",
-            "nl": "Yandex smart home",
-            "fr": "Yandex maison intelligente",
-            "it": "Yandex casa intelligente",
-            "es": "Casa inteligente Yandex",
-            "pl": "Inteligentny dom Yandex",
-            "zh-cn": "Yandex智能家居"
-        },
-        "desc": {
-            "en": "yandex_smart_home",
-            "de": "yandex_smart_home",
-            "ru": "yandex_smart_home",
-            "pt": "yandex_smart_home",
-            "nl": "yandex_smart_home",
-            "fr": "yandex_smart_home",
-            "it": "yandex_smart_home",
-            "es": "yandex_smart_home",
-            "pl": "yandex_smart_home",
-            "zh-cn": "yandex_smart_home"
-        },
-        "authors": [
-            "Kirov Ilya <kirovilya@gmail.com>"
-        ],
-        "keywords": [
-            "yandex",
-            "alice"
-        ],
-        "license": "MIT",
-        "platform": "Javascript/Node.js",
-        "main": "main.js",
-        "icon": "yandex_smart_home.png",
-        "enabled": true,
-        "extIcon": "https://raw.githubusercontent.com/kirovilya/ioBroker.yandex_smart_home/master/admin/yandex_smart_home.png",
-        "readme": "https://github.com/kirovilya/ioBroker.yandex_smart_home/blob/master/README.md",
-        "loglevel": "info",
-        "mode": "daemon",
-        "type": "iot-systems",
-        "compact": true,
-        "materialize": true,
-        "messagebox": true,
-        "dependencies": [
-            {
-                "js-controller": ">=1.4.2"
-            }
-        ]
+  "common": {
+    "name": "yandex_smart_home",
+    "version": "0.0.1",
+    "news": {
+      "0.0.1": {
+        "en": "initial release",
+        "de": "Erstveröffentlichung",
+        "ru": "Начальная версия",
+        "pt": "lançamento inicial",
+        "nl": "Eerste uitgave",
+        "fr": "Première version",
+        "it": "Versione iniziale",
+        "es": "Versión inicial",
+        "pl": "Pierwsze wydanie",
+        "zh-cn": "首次出版"
+      }
     },
-    "native": {
-        "port": 8088,
-        "prefix": "",
-        "iotInstance": ""
+    "title": "Yandex smart home",
+    "titleLang": {
+      "en": "Yandex smart home",
+      "de": "Yandex Smart Home",
+      "ru": "Яндекс умный дом",
+      "pt": "Yandex casa inteligente",
+      "nl": "Yandex smart home",
+      "fr": "Yandex maison intelligente",
+      "it": "Yandex casa intelligente",
+      "es": "Casa inteligente Yandex",
+      "pl": "Inteligentny dom Yandex",
+      "zh-cn": "Yandex智能家居"
     },
-    "objects": [],
-    "instanceObjects": []
+    "desc": {
+      "en": "yandex_smart_home",
+      "de": "yandex_smart_home",
+      "ru": "yandex_smart_home",
+      "pt": "yandex_smart_home",
+      "nl": "yandex_smart_home",
+      "fr": "yandex_smart_home",
+      "it": "yandex_smart_home",
+      "es": "yandex_smart_home",
+      "pl": "yandex_smart_home",
+      "zh-cn": "yandex_smart_home"
+    },
+    "authors": [
+      "Kirov Ilya <kirovilya@gmail.com>"
+    ],
+    "keywords": [
+      "yandex",
+      "alice"
+    ],
+    "license": "MIT",
+    "platform": "Javascript/Node.js",
+    "main": "main.js",
+    "icon": "yandex_smart_home.png",
+    "enabled": true,
+    "extIcon": "https://raw.githubusercontent.com/kirovilya/ioBroker.yandex_smart_home/master/admin/yandex_smart_home.png",
+    "readme": "https://github.com/kirovilya/ioBroker.yandex_smart_home/blob/master/README.md",
+    "loglevel": "info",
+    "mode": "daemon",
+    "type": "iot-systems",
+    "compact": true,
+    "materialize": true,
+    "messagebox": true,
+    "dependencies": [
+      {
+        "js-controller": ">=1.4.2"
+      }
+    ],
+  },
+  "native": {
+    "port": 8088,
+    "prefix": "",
+    "iotInstance": "",
+    "skill_id": "",
+    "token": ""
+  },
+  "objects": [],
+  "instanceObjects": []
 }
