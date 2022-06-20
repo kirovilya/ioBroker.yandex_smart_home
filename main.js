@@ -18,6 +18,7 @@ const LE = require(utils.controllerDir + '/lib/letsencrypt.js');
 
 const safeJsonStringify = require('./lib/json');
 var https  = require('https');
+const { adapter } = require("@iobroker/adapter-core");
 
 class YandexSmartHome extends utils.Adapter {
 
@@ -302,6 +303,7 @@ class YandexSmartHome extends utils.Adapter {
     }
 
     sendBackNotify(deviceId) {
+        const adapter = this;
         const OBJECT_FROM_ALISA_SERVICE = {
             "devices": [
                 {
@@ -312,9 +314,9 @@ class YandexSmartHome extends utils.Adapter {
         OBJECT_FROM_ALISA_SERVICE.alisa = '/v1.0/user/devices/query';
         this.sendTo(this.iotInstance, 'private', {type: 'alisa', request: OBJECT_FROM_ALISA_SERVICE}, response => {
             if (response) {
-                this.log.debug(JSON.stringify(response));
+                adapter.log.debug(JSON.stringify(response));
                 delete response.request_id;
-                response.ts = Date.now();
+                response.ts = new Date().getTime() / 1000;
                 this.sendToYandex(response);
             }
         });
@@ -328,26 +330,23 @@ class YandexSmartHome extends utils.Adapter {
             path: `/api/v1/skills/${this.config.skill_id}/callback/state`,
             method: 'POST',
             headers: {
-                'Authorization': this.config.token,
+                'Authorization': `OAuth ${this.config.token}`,
                 'Content-Type': 'application/json'
             }
         };
+        adapter.log.debug(JSON.stringify(options));
+        adapter.log.debug(postData);
         const r = https.request(options, function (res) {
             let message = '', data = '';
             res.on('data', (chunk) => {
                 message += chunk;
             });
             res.on('end', function() {
-                try {
-                    data = JSON.parse(message);
-                } catch (err) {
-                    adapter.log.error('Cannot parse: ' + message);
-                    return;
-                }
-                if (res.statusCode == 200) {
-                    
+                if ([202, 200].indexOf(res.statusCode) >= 0) {
+                    adapter.log.debug(message);
                 } else {
                     adapter.log.error(res.statusMessage);
+                    adapter.log.error(message);
                 }
             });
         });
