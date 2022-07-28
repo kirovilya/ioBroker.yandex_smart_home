@@ -19,6 +19,113 @@ const LE = require(utils.controllerDir + '/lib/letsencrypt.js');
 const safeJsonStringify = require('./lib/json');
 var https  = require('https');
 const { adapter } = require("@iobroker/adapter-core");
+const WebSocket = require('ws').WebSocket;
+const uuid = require('uuid/v4');
+const axios = require('axios');
+const { Scanner, Services } = require('mdns-scanner');
+
+
+class YandexSession {
+    constructor(adapter) {
+        this.adapter = adapter;
+    }
+
+    refreshSession() {
+        return axios.get("https://yandex.ru/quasar?storage=1", {validateStatus: status => status === 200}
+            ).then(response => {
+                this.adapter.log.debug(`refreshSession: ${JSON.stringify(response.data)}`);
+                const uid = response.data['storage']['user']['uid'];
+                if (uid) {
+                    return true;
+                } else {
+                    const ok = this.loginToken(this.adapter.config.x_token);
+                    // if (ok) {
+                    //     this.update();
+                    // }
+                    return ok;
+                }
+            }).catch(error => {
+                let errorMessage;
+                if (error.response) {
+                    errorMessage = error.response.data || error.response.status;
+                } else if (error.request) {
+                    errorMessage = 'No answer';
+                } else {
+                    errorMessage = error.message;
+                }
+                this.adapter.log.error('refreshSession error: ' + errorMessage);
+            });
+    }
+
+    loginToken(token) {
+        this.adapter.log.debug(`Login with token ${token}`);
+        return axios.post("https://mobileproxy.passport.yandex.net/1/bundle/auth/x_token/", 
+            {
+                'type': 'x-token',
+                'retpath': 'https://www.yandex.ru'
+            },
+            {
+                headers: {'Ya-Consumer-Authorization': `OAuth ${token}`},
+                //validateStatus: status => status === 200
+            }).then(response => {
+                this.adapter.log.debug(`loginToken: ${JSON.stringify(response.data)}`);
+                const status = response.data['status'];
+                if (status != 'ok') {
+                    this.adapter.log.error('loginToken error status: ' + response.data);
+                    return false;
+                }
+                const host = response.data['passport_host'];
+                const trackId = response.data['track_id'];
+                return axios.get(`${host}/auth/session/`, 
+                    {
+                        params: {track_id: trackId},
+                        maxRedirects: 0,
+                        validateStatus: status => status != 302
+                    }).then(response => {return true});
+            }).catch(error => {
+                let errorMessage;
+                if (error.response) {
+                    errorMessage = error.response.data || error.response.status;
+                } else if (error.request) {
+                    errorMessage = 'No answer';
+                } else {
+                    errorMessage = error.message;
+                }
+                this.adapter.log.error('loginToken error: ' + errorMessage);
+            });
+    }
+
+    loginUsername() {
+        // const r = https.request(options, function (res) {
+        //     let message = '', data = '';
+        //     res.on('data', (chunk) => {
+        //         message += chunk;
+        //     });
+        //     res.on('end', function() {
+        //         if ([202, 200].indexOf(res.statusCode) >= 0) {
+        //             adapter.log.debug(message);
+        //         } else {
+        //             adapter.log.error(res.statusMessage);
+        //             adapter.log.error(message);
+        //         }
+        //     });
+        // });
+        // r.on('error', function (res) {
+        //     adapter.log.error('request failure: '+res.message);
+        // });
+    }
+}
+
+
+class YandexQuasar {
+    constructor(session) {
+        this.session = session;
+    }
+    init() {
+        
+    }
+}
+
 
 class YandexSmartHome extends utils.Adapter {
 
@@ -35,18 +142,43 @@ class YandexSmartHome extends utils.Adapter {
         this.on("message", this.onMessage.bind(this));
         this.on("unload", this.onUnload.bind(this));
         this.webServer = null;
+        this.session = new YandexSession(this);
+        // this.wsclient = new WebSocket('wss://10.0.0.2:1961', {
+        //     protocolVersion: 8,
+        //     origin: 'https://10.0.0.2:1961',
+        //     rejectUnauthorized: false
+        // });
+        // this.wsclient.on('open', function() {
+        //     const wsdata = {
+        //         'conversationToken': "",
+        //         'id': uuid(),
+        //         'payload': {'command': 'softwareVersion'},
+        //         'sentTime': new Date().getTime() / 1000,
+        //     };
+        //     this.wsclient.send(JSON.stringify(wsdata));
+        // }.bind(this));
+        // this.wsclient.on('message', this.wslog.bind(this));
+        // this.wsclient.on('ping', this.wslog.bind(this));
+        // this.wsclient.on('close', function clear() {});
+    }
+
+    wslog(data) {
+        this.log.info(data);
     }
 
     /**
      * Is called when databases are connected and adapter received configuration.
      */
-    onReady() {
+    async onReady() {
         // Initialize your adapter here
         this.webServer = this.initWebServer({
             port: this.config.port,
             prefix: this.config.prefix,
             iotInstance: this.config.iotInstance
         });
+        //this.session.refreshSession();
+        const res = await this.scanYandexStations();
+        this.log.info(`Found Yandex Stations: ${JSON.stringify(res)}`)
     }
 
     /**
@@ -358,6 +490,58 @@ class YandexSmartHome extends utils.Adapter {
             adapter.log.debug(postData);
         }
         r.end();
+    }
+
+    scanYandexStations(timeout=15) {
+        return new Promise((resolve, reject) => {
+            const scanner = new Scanner({ debug: true });
+            const services = new Services(scanner);
+            services.on('error', error => {
+                this.log.error('ERROR EVENT: '+ error);
+            }).on('warn', message => {
+                this.log.debug('WARN EVENT: '+ message);
+            }).on('debug', message => {
+                this.log.debug('DEBUG EVENT: '+ message);
+            }).on('query', message => {
+                this.log.debug('QUERY EVENT: '+ JSON.stringify(message.questions));
+            }).on('discovered', message => {
+                this.log.debug('DISCOVERED EVENT: '+ JSON.stringify(message));
+            });
+            // initialize scanner and send a query
+            scanner.init()
+                .then(ready => {
+                    if (!ready) throw new Error('Scanner not ready after init.');
+                    scanner.query('_services._dns-sd._udp.local', 'ANY');
+                    //scanner.query('_yandexio._tcp.local', 'ANY');
+                })
+                .catch((error) => {
+                    this.log.error('CAUGHT ERROR: '+ error.message);
+                    reject();
+                });
+            // end scan after delay
+            setTimeout(() => {
+                const types = services.types.slice();
+                types.sort();
+                this.log.debug('Discovered types:' + JSON.stringify(types));
+                const result = [];
+                Object.keys(services.namedServices).forEach(name => {
+                    this.log.debug(`Service: ${name} from ${services.namedServices[name].rinfo.address}.`);
+                    if (services.namedServices[name].service) {
+                        this.log.debug('Data:' + JSON.stringify(services.namedServices[name].service.data));
+                        if (name.endsWith('_yandexio._tcp.local') || name.endsWith('_linkplay._tcp.local')) {
+                            result.push({
+                                service: name,
+                                ip: services.namedServices[name].rinfo.address,
+                                port: services.namedServices[name].service.data['port'],
+                                target: services.namedServices[name].service.data['target'],
+                            });
+                        }
+                    }
+                });
+                scanner.destroy();
+                resolve(result);
+            }, timeout*1000);
+        });
     }
 }
 
